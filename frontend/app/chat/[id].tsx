@@ -15,6 +15,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { format } from 'date-fns';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -48,10 +49,27 @@ export default function ChatScreen() {
     }
   }, [messages]);
 
+  const getAuthHeaders = async () => {
+    const token = await AsyncStorage.getItem('session_token');
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+  };
+
   const loadMessages = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${BACKEND_URL}/api/messages/${id}`);
+      const headers = await getAuthHeaders();
+      const response = await fetch(`${BACKEND_URL}/api/messages/${id}`, {
+        headers,
+      });
+      
+      if (response.status === 401) {
+        router.replace('/login');
+        return;
+      }
+      
       const data = await response.json();
       setMessages(data.messages || []);
     } catch (error) {
@@ -80,11 +98,10 @@ export default function ChatScreen() {
     setSending(true);
 
     try {
+      const headers = await getAuthHeaders();
       const response = await fetch(`${BACKEND_URL}/api/chat`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           conversation_id: id,
           content: userMessage,
@@ -92,6 +109,10 @@ export default function ChatScreen() {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          router.replace('/login');
+          return;
+        }
         throw new Error('Failed to send message');
       }
 

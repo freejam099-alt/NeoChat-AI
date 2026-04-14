@@ -7,11 +7,14 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { format } from 'date-fns';
+import { useAuth } from '../contexts/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -24,6 +27,7 @@ interface Conversation {
 }
 
 interface Usage {
+  user_id: string;
   total_conversations: number;
   total_messages: number;
   total_ai_responses: number;
@@ -31,14 +35,32 @@ interface Usage {
 
 export default function Index() {
   const router = useRouter();
+  const { user, loading: authLoading, logout } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Redirect to login if not authenticated
   useEffect(() => {
-    loadData();
-  }, []);
+    if (!authLoading && !user) {
+      router.replace('/login');
+    }
+  }, [authLoading, user]);
+
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+  }, [user]);
+
+  const getAuthHeaders = async () => {
+    const token = await AsyncStorage.getItem('session_token');
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+  };
 
   const loadData = async () => {
     try {
@@ -53,7 +75,16 @@ export default function Index() {
 
   const loadConversations = async () => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/conversations`);
+      const headers = await getAuthHeaders();
+      const response = await fetch(`${BACKEND_URL}/api/conversations`, {
+        headers,
+      });
+      
+      if (response.status === 401) {
+        router.replace('/login');
+        return;
+      }
+      
       const data = await response.json();
       setConversations(data.conversations || []);
     } catch (error) {
@@ -63,7 +94,16 @@ export default function Index() {
 
   const loadUsage = async () => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/usage`);
+      const headers = await getAuthHeaders();
+      const response = await fetch(`${BACKEND_URL}/api/usage`, {
+        headers,
+      });
+      
+      if (response.status === 401) {
+        router.replace('/login');
+        return;
+      }
+      
       const data = await response.json();
       setUsage(data);
     } catch (error) {
@@ -79,9 +119,17 @@ export default function Index() {
 
   const createNewChat = async () => {
     try {
+      const headers = await getAuthHeaders();
       const response = await fetch(`${BACKEND_URL}/api/conversations`, {
         method: 'POST',
+        headers,
       });
+      
+      if (response.status === 401) {
+        router.replace('/login');
+        return;
+      }
+      
       const data = await response.json();
       router.push(`/chat/${data.conversation.id}`);
     } catch (error) {
@@ -101,8 +149,10 @@ export default function Index() {
           style: 'destructive',
           onPress: async () => {
             try {
+              const headers = await getAuthHeaders();
               await fetch(`${BACKEND_URL}/api/conversations/${id}`, {
                 method: 'DELETE',
+                headers,
               });
               await loadData();
             } catch (error) {
@@ -125,13 +175,33 @@ export default function Index() {
           style: 'destructive',
           onPress: async () => {
             try {
+              const headers = await getAuthHeaders();
               await fetch(`${BACKEND_URL}/api/conversations/clear/all`, {
                 method: 'DELETE',
+                headers,
               });
               await loadData();
             } catch (error) {
               console.error('Error clearing conversations:', error);
             }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/login');
           },
         },
       ]
@@ -164,7 +234,16 @@ export default function Index() {
     </TouchableOpacity>
   );
 
-  if (loading) {
+  if (authLoading || !user) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#00d9ff" />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
+
+  if (loading && conversations.length === 0) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#00d9ff" />
@@ -185,16 +264,30 @@ export default function Index() {
             >
               <Ionicons name="flash" size={24} color="#0a0a0f" />
             </LinearGradient>
-            <Text style={styles.headerTitle}>NeoChat</Text>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.headerTitle}>NeoChat</Text>
+              <Text style={styles.headerSubtitle}>{user.name}</Text>
+            </View>
           </View>
-          {conversations.length > 0 && (
+          <View style={styles.headerActions}>
+            {user.picture && (
+              <Image source={{ uri: user.picture }} style={styles.userAvatar} />
+            )}
             <TouchableOpacity
-              style={styles.clearButton}
-              onPress={clearAllChats}
+              style={styles.logoutButton}
+              onPress={handleLogout}
             >
-              <Ionicons name="trash-outline" size={20} color="#ff0066" />
+              <Ionicons name="log-out-outline" size={24} color="#ff0066" />
             </TouchableOpacity>
-          )}
+            {conversations.length > 0 && (
+              <TouchableOpacity
+                style={styles.clearButton}
+                onPress={clearAllChats}
+              >
+                <Ionicons name="trash-outline" size={20} color="#ff0066" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
 
@@ -286,6 +379,7 @@ const styles = StyleSheet.create({
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   logoGradient: {
     width: 40,
@@ -298,14 +392,35 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.8,
     shadowRadius: 10,
   },
+  headerTextContainer: {
+    marginLeft: 12,
+  },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#00d9ff',
-    marginLeft: 12,
     textShadowColor: '#00d9ff',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 10,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  userAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#00d9ff',
+  },
+  logoutButton: {
+    padding: 4,
   },
   clearButton: {
     padding: 8,
