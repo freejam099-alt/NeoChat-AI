@@ -8,10 +8,10 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { format } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -40,8 +40,8 @@ export default function Index() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(false);
 
-  // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
       router.replace('/login');
@@ -131,6 +131,7 @@ export default function Index() {
       }
       
       const data = await response.json();
+      setSidebarVisible(false);
       router.push(`/chat/${data.conversation.id}`);
     } catch (error) {
       console.error('Error creating conversation:', error);
@@ -164,32 +165,6 @@ export default function Index() {
     );
   };
 
-  const clearAllChats = () => {
-    Alert.alert(
-      'Clear All Chats',
-      'Are you sure you want to delete all conversations? This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear All',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const headers = await getAuthHeaders();
-              await fetch(`${BACKEND_URL}/api/conversations/clear/all`, {
-                method: 'DELETE',
-                headers,
-              });
-              await loadData();
-            } catch (error) {
-              console.error('Error clearing conversations:', error);
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const handleLogout = () => {
     Alert.alert(
       'Logout',
@@ -210,26 +185,23 @@ export default function Index() {
 
   const renderConversation = ({ item }: { item: Conversation }) => (
     <TouchableOpacity
-      style={styles.conversationCard}
-      onPress={() => router.push(`/chat/${item.id}`)}
+      style={styles.conversationItem}
+      onPress={() => {
+        setSidebarVisible(false);
+        router.push(`/chat/${item.id}`);
+      }}
       onLongPress={() => deleteConversation(item.id)}
     >
-      <View style={styles.neonBorder} />
-      <View style={styles.conversationContent}>
-        <View style={styles.conversationHeader}>
-          <Ionicons name="chatbubble-ellipses" size={20} color="#00d9ff" />
-          <Text style={styles.conversationTitle} numberOfLines={1}>
-            {item.title}
-          </Text>
-        </View>
-        <View style={styles.conversationFooter}>
-          <Text style={styles.messageCount}>
-            {item.message_count} messages
-          </Text>
-          <Text style={styles.timestamp}>
-            {format(new Date(item.updated_at), 'MMM d, HH:mm')}
-          </Text>
-        </View>
+      <View style={styles.conversationIconContainer}>
+        <Ionicons name="chatbubble-outline" size={18} color="#666" />
+      </View>
+      <View style={styles.conversationInfo}>
+        <Text style={styles.conversationTitle} numberOfLines={1}>
+          {item.title}
+        </Text>
+        <Text style={styles.conversationMeta}>
+          {item.message_count} messages · {format(new Date(item.updated_at), 'MMM d')}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -237,8 +209,7 @@ export default function Index() {
   if (authLoading || !user) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#00d9ff" />
-        <Text style={styles.loadingText}>Loading...</Text>
+        <ActivityIndicator size="large" color="#000" />
       </View>
     );
   }
@@ -246,82 +217,48 @@ export default function Index() {
   if (loading && conversations.length === 0) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#00d9ff" />
-        <Text style={styles.loadingText}>Loading NeoChat...</Text>
+        <ActivityIndicator size="large" color="#000" />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Header - Clean & Minimal */}
       <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={styles.logoContainer}>
-            <LinearGradient
-              colors={['#00d9ff', '#0066ff']}
-              style={styles.logoGradient}
-            >
-              <Ionicons name="flash" size={24} color="#0a0a0f" />
-            </LinearGradient>
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>NeoChat</Text>
-              <Text style={styles.headerSubtitle}>{user.name}</Text>
-            </View>
-          </View>
-          <View style={styles.headerActions}>
-            {user.picture && (
-              <Image source={{ uri: user.picture }} style={styles.userAvatar} />
-            )}
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={handleLogout}
-            >
-              <Ionicons name="log-out-outline" size={24} color="#ff0066" />
-            </TouchableOpacity>
-            {conversations.length > 0 && (
-              <TouchableOpacity
-                style={styles.clearButton}
-                onPress={clearAllChats}
-              >
-                <Ionicons name="trash-outline" size={20} color="#ff0066" />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={() => setSidebarVisible(true)}
+        >
+          <Ionicons name="menu" size={24} color="#000" />
+        </TouchableOpacity>
+        
+        <Text style={styles.headerTitle}>NeoChat</Text>
+        
+        <TouchableOpacity
+          style={styles.newChatButton}
+          onPress={createNewChat}
+        >
+          <Ionicons name="create-outline" size={24} color="#000" />
+        </TouchableOpacity>
       </View>
 
-      {/* Usage Stats */}
-      {usage && (
-        <View style={styles.statsContainer}>
-          <View style={styles.neonBorder} />
-          <View style={styles.statsContent}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{usage.total_conversations}</Text>
-              <Text style={styles.statLabel}>Chats</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{usage.total_messages}</Text>
-              <Text style={styles.statLabel}>Messages</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{usage.total_ai_responses}</Text>
-              <Text style={styles.statLabel}>AI Replies</Text>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* Conversations List */}
+      {/* Empty State dengan Suggestion Chips */}
       {conversations.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="chatbubbles-outline" size={80} color="#1a1a2e" />
-          <Text style={styles.emptyTitle}>No conversations yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Start a new chat to begin talking with AI
-          </Text>
+          <Text style={styles.emptyTitle}>What can I help with?</Text>
+          
+          <View style={styles.suggestionsContainer}>
+            <TouchableOpacity style={styles.suggestionChip} onPress={createNewChat}>
+              <Ionicons name="create-outline" size={20} color="#666" />
+              <Text style={styles.suggestionText}>Start a conversation</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.suggestionChip} onPress={createNewChat}>
+              <Ionicons name="bulb-outline" size={20} color="#666" />
+              <Text style={styles.suggestionText}>Ask me anything</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
         <FlatList
@@ -331,20 +268,97 @@ export default function Index() {
           contentContainerStyle={styles.listContent}
           onRefresh={handleRefresh}
           refreshing={refreshing}
+          ListHeaderComponent={
+            <Text style={styles.listHeader}>Recent Conversations</Text>
+          }
         />
       )}
 
-      {/* New Chat Button */}
-      <TouchableOpacity style={styles.newChatButton} onPress={createNewChat}>
-        <LinearGradient
-          colors={['#00d9ff', '#0066ff']}
-          style={styles.newChatGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+      {/* Sidebar Modal */}
+      <Modal
+        visible={sidebarVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setSidebarVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.sidebarOverlay}
+          activeOpacity={1}
+          onPress={() => setSidebarVisible(false)}
         >
-          <Ionicons name="add" size={32} color="#0a0a0f" />
-        </LinearGradient>
-      </TouchableOpacity>
+          <View style={styles.sidebar} onStartShouldSetResponder={() => true}>
+            {/* Sidebar Header */}
+            <View style={styles.sidebarHeader}>
+              <TouchableOpacity onPress={() => setSidebarVisible(false)}>
+                <Ionicons name="close" size={24} color="#000" />
+              </TouchableOpacity>
+              <Text style={styles.sidebarTitle}>Menu</Text>
+              <View style={{ width: 24 }} />
+            </View>
+
+            {/* User Profile */}
+            <View style={styles.userProfile}>
+              {user.picture && (
+                <Image source={{ uri: user.picture }} style={styles.userAvatar} />
+              )}
+              <View>
+                <Text style={styles.userName}>{user.name}</Text>
+                <Text style={styles.userEmail}>{user.email}</Text>
+              </View>
+            </View>
+
+            {/* Stats */}
+            {usage && (
+              <View style={styles.statsSection}>
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>{usage.total_conversations}</Text>
+                  <Text style={styles.statLabel}>Conversations</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>{usage.total_messages}</Text>
+                  <Text style={styles.statLabel}>Messages</Text>
+                </View>
+              </View>
+            )}
+
+            {/* Menu Items */}
+            <View style={styles.menuSection}>
+              <TouchableOpacity style={styles.menuItem} onPress={createNewChat}>
+                <Ionicons name="add-circle-outline" size={22} color="#000" />
+                <Text style={styles.menuItemText}>New Chat</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.menuItem} onPress={() => {}}>
+                <Ionicons name="settings-outline" size={22} color="#000" />
+                <Text style={styles.menuItemText}>Settings</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+                <Ionicons name="log-out-outline" size={22} color="#d00" />
+                <Text style={[styles.menuItemText, { color: '#d00' }]}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Conversations List in Sidebar */}
+            <View style={styles.sidebarConversations}>
+              <Text style={styles.sidebarSectionTitle}>Your Chats</Text>
+              <FlatList
+                data={conversations}
+                renderItem={renderConversation}
+                keyExtractor={(item) => item.id}
+                showsVerticalScrollIndicator={false}
+              />
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Floating Action Button */}
+      {conversations.length > 0 && (
+        <TouchableOpacity style={styles.fab} onPress={createNewChat}>
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -352,194 +366,231 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0f',
+    backgroundColor: '#fff',
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#0a0a0f',
+    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
-    color: '#00d9ff',
-    fontSize: 16,
-    marginTop: 16,
-    fontWeight: '600',
-  },
   header: {
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  headerContent: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 50,
+    paddingBottom: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e5e5',
   },
-  logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  logoGradient: {
+  menuButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#00d9ff',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
-  },
-  headerTextContainer: {
-    marginLeft: 12,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#00d9ff',
-    textShadowColor: '#00d9ff',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#000',
   },
-  headerSubtitle: {
-    fontSize: 12,
-    color: '#6b7280',
+  newChatButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  headerActions: {
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyTitle: {
+    fontSize: 32,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 32,
+    textAlign: 'center',
+  },
+  suggestionsContainer: {
+    width: '100%',
+    gap: 12,
+  },
+  suggestionChip: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#f7f7f7',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+    gap: 12,
+  },
+  suggestionText: {
+    fontSize: 15,
+    color: '#333',
+  },
+  listContent: {
+    paddingTop: 8,
+    paddingBottom: 100,
+  },
+  listHeader: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  conversationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  conversationIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  conversationInfo: {
+    flex: 1,
+  },
+  conversationTitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#000',
+    marginBottom: 4,
+  },
+  conversationMeta: {
+    fontSize: 13,
+    color: '#999',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  sidebarOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-start',
+  },
+  sidebar: {
+    width: '80%',
+    maxWidth: 320,
+    height: '100%',
+    backgroundColor: '#fff',
+    paddingTop: 50,
+  },
+  sidebarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e5e5',
+  },
+  sidebarTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+  },
+  userProfile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
     gap: 12,
   },
   userAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#00d9ff',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
-  logoutButton: {
-    padding: 4,
+  userName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
   },
-  clearButton: {
-    padding: 8,
+  userEmail: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 2,
   },
-  statsContainer: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderRadius: 16,
-    backgroundColor: '#1a1a2e',
-    overflow: 'hidden',
-  },
-  neonBorder: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: '#00d9ff',
-    shadowColor: '#00d9ff',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-  },
-  statsContent: {
+  statsSection: {
     flexDirection: 'row',
-    paddingVertical: 20,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#e5e5e5',
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#00d9ff',
-    marginBottom: 4,
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#000',
   },
   statLabel: {
     fontSize: 12,
-    color: '#6b7280',
-    textTransform: 'uppercase',
+    color: '#666',
+    marginTop: 4,
   },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#2a2a3e',
+  menuSection: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e5e5',
   },
-  listContent: {
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingBottom: 100,
+    paddingVertical: 14,
+    gap: 16,
   },
-  conversationCard: {
-    marginBottom: 16,
-    borderRadius: 16,
-    backgroundColor: '#1a1a2e',
-    overflow: 'hidden',
+  menuItemText: {
+    fontSize: 15,
+    color: '#000',
   },
-  conversationContent: {
-    padding: 16,
-  },
-  conversationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  conversationTitle: {
+  sidebarConversations: {
     flex: 1,
-    fontSize: 16,
+    paddingTop: 12,
+  },
+  sidebarSectionTitle: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#ffffff',
-    marginLeft: 8,
-  },
-  conversationFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  messageCount: {
-    fontSize: 12,
-    color: '#6b7280',
-  },
-  timestamp: {
-    fontSize: 12,
-    color: '#6b7280',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    marginTop: 24,
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-  },
-  newChatButton: {
-    position: 'absolute',
-    bottom: 30,
-    right: 20,
-    borderRadius: 30,
-    shadowColor: '#00d9ff',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  newChatGradient: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
+    color: '#666',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });
