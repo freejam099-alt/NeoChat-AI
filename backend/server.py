@@ -40,6 +40,7 @@ user_sessions_collection = db["user_sessions"]
 conversations_collection = db["conversations"]
 messages_collection = db["messages"]
 usage_collection = db["usage"]
+user_preferences_collection = db["user_preferences"]
 
 # Pydantic models
 class User(BaseModel):
