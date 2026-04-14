@@ -1,0 +1,129 @@
+{
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "total": 8,
+    "success_rate": 100.0
+  },
+  "tests": [
+    {
+      "test": "Health Check",
+      "success": true,
+      "details": "Service healthy and database connected",
+      "timestamp": "2026-04-14T09:09:24.897259",
+      "response_data": {
+        "status": "healthy",
+        "database": "connected"
+      }
+    },
+    {
+      "test": "Usage Statistics",
+      "success": true,
+      "details": "Retrieved usage data: 0 conversations, 0 messages, 0 AI responses",
+      "timestamp": "2026-04-14T09:09:25.441075",
+      "response_data": {
+        "total_conversations": 0,
+        "total_messages": 0,
+        "total_ai_responses": 0,
+        "created_at": "2026-04-14T09:05:03.251767",
+        "id": "69de033fa45e62b8a039c050"
+      }
+    },
+    {
+      "test": "Create Conversation",
+      "success": true,
+      "details": "Created conversation with ID: 69de0445a45e62b8a039c051",
+      "timestamp": "2026-04-14T09:09:25.996187",
+      "response_data": {
+        "conversation": {
+          "title": "New Chat",
+          "created_at": "2026-04-14T09:09:25.969637",
+          "updated_at": "2026-04-14T09:09:25.969642",
+          "id": "69de0445a45e62b8a039c051"
+        }
+      }
+    },
+    {
+      "test": "Get Conversations",
+      "success": true,
+      "details": "Retrieved 1 conversations",
+      "timestamp": "2026-04-14T09:09:26.537988",
+      "response_data": {
+        "conversations": [
+          {
+            "title": "New Chat",
+            "created_at": "2026-04-14T09:09:25.969637",
+            "updated_at": "2026-04-14T09:09:25.969642",
+            "id": "69de0445a45e62b8a039c051",
+            "message_count": 0
+          }
+        ]
+      }
+    },
+    {
+      "test": "Chat AI Integration",
+      "success": true,
+      "details": "AI responded successfully. Response: 'Hello! I'm doing great, thanks for asking! \ud83d\ude0a I'm here and ready to help with whatever you need. How ...'",
+      "timestamp": "2026-04-14T09:09:27.991977",
+      "response_data": {
+        "user_message": {
+          "conversation_id": "69de0445a45e62b8a039c051",
+          "role": "user",
+          "content": "Hello, how are you today? Please respond with a friendly greeting.",
+          "timestamp": "2026-04-14T09:09:27.066806",
+          "id": "69de0447a45e62b8a039c052"
+        },
+        "ai_message": {
+          "conversation_id": "69de0445a45e62b8a039c051",
+          "role": "assistant",
+          "content": "Hello! I'm doing great, thanks for asking! \ud83d\ude0a I'm here and ready to help with whatever you need. How are *you* doing today?",
+          "timestamp": "2026-04-14T09:09:27.972716",
+          "id": "69de0447a45e62b8a039c053"
+        }
+      }
+    },
+    {
+      "test": "Get Messages",
+      "success": true,
+      "details": "Retrieved 2 messages (user + AI)",
+      "timestamp": "2026-04-14T09:09:28.585426",
+      "response_data": {
+        "messages": [
+          {
+            "conversation_id": "69de0445a45e62b8a039c051",
+            "role": "user",
+            "content": "Hello, how are you today? Please respond with a friendly greeting.",
+            "timestamp": "2026-04-14T09:09:27.066806",
+            "id": "69de0447a45e62b8a039c052"
+          },
+          {
+            "conversation_id": "69de0445a45e62b8a039c051",
+            "role": "assistant",
+            "content": "Hello! I'm doing great, thanks for asking! \ud83d\ude0a I'm here and ready to help with whatever you need. How are *you* doing today?",
+            "timestamp": "2026-04-14T09:09:27.972716",
+            "id": "69de0447a45e62b8a039c053"
+          }
+        ]
+      }
+    },
+    {
+      "test": "Delete Conversation",
+      "success": true,
+      "details": "Conversation deleted: Conversation deleted successfully",
+      "timestamp": "2026-04-14T09:09:29.128836",
+      "response_data": {
+        "message": "Conversation deleted successfully"
+      }
+    },
+    {
+      "test": "Clear All Conversations",
+      "success": true,
+      "details": "All conversations cleared: All conversations cleared",
+      "timestamp": "2026-04-14T09:09:29.675461",
+      "response_data": {
+        "message": "All conversations cleared"
+      }
+    }
+  ],
+  "timestamp": "2026-04-14T09:09:30.175729"
+}
